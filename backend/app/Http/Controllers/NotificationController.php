@@ -3,18 +3,30 @@
 namespace App\Http\Controllers;
 
 use App\Models\Notification;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /** In-app notifications for any signed-in role. */
 class NotificationController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, NotificationService $notifications): JsonResponse
     {
-        $page = $request->user()->appNotifications()->latest()->paginate(15);
+        $user = $request->user();
+        $page = $user->appNotifications()
+            ->when($request->boolean('unread'), fn ($q) => $q->whereNull('read_at'))
+            ->latest()->paginate(15);
+
+        // Notifications stored before links were saved get one derived on the fly.
+        $items = collect($page->items())->each(function (Notification $n) use ($user, $notifications) {
+            $data = $n->data ?? [];
+            if (empty($data['url']) && ($url = $notifications->linkFor($user->role, $n->type, $data))) {
+                $n->data = $data + ['url' => $url];
+            }
+        });
 
         return response()->json([
-            'data' => $page->items(),
+            'data' => $items,
             'unread_count' => $request->user()->appNotifications()->whereNull('read_at')->count(),
             'meta' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage()],
         ]);

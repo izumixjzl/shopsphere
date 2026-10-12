@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Wallet } from 'lucide-react'
-import { Button, ConfirmDialog, EmptyState, PageLoader, StatusBadge, Table } from '../../components/ui'
+import { Alert, Button, ConfirmDialog, EmptyState, PageLoader, StatusBadge, Table } from '../../components/ui'
 import { useToast } from '../../context/ToastContext'
 import { PageHeader } from '../../layouts/DashboardLayout'
 import { api, errorMessage, fieldErrors } from '../../lib/api'
@@ -8,11 +8,12 @@ import { date, money } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
 
 export default function AdminPayouts() {
-  const { data, loading, reload } = useFetch('/admin/payouts')
+  const { data, loading, error, reload } = useFetch('/admin/payouts')
   const [confirm, setConfirm] = useState(null) // { kind: 'create'|'paid', row }
   const [busy, setBusy] = useState(false)
   const toast = useToast()
   if (loading && !data) return <PageLoader />
+  if (!data) return <Alert>{error || 'Payouts could not be loaded.'}</Alert>
 
   async function run() {
     setBusy(true)

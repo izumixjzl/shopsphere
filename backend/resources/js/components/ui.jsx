@@ -80,6 +80,7 @@ const tones = {
   removed: 'bg-coral-tint text-coral', failed: 'bg-coral-tint text-coral', flagged: 'bg-mango-tint text-[#8a5a00]',
   returned: 'bg-ink/5 text-ink-soft', reversed: 'bg-ink/5 text-ink-soft', draft: 'bg-ink/5 text-ink-soft',
   inactive: 'bg-ink/5 text-ink-soft', unpaid: 'bg-ink/5 text-ink-soft',
+  open: 'bg-mango-tint text-[#8a5a00]', resolved: 'bg-leaf-tint text-leaf', dismissed: 'bg-ink/5 text-ink-soft',
 }
 
 export function StatusBadge({ status, className = '' }) {
@@ -137,13 +138,19 @@ export function Pagination({ meta, onPage }) {
 
 export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
   const ref = useRef(null)
+  // Callers usually pass a new onClose each render; read it through a ref so typing
+  // (which re-renders the parent) doesn't re-run the effect and steal focus.
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
   useEffect(() => {
     if (!open) return
-    const onKey = (e) => e.key === 'Escape' && onClose?.()
+    const onKey = (e) => e.key === 'Escape' && closeRef.current?.()
     document.addEventListener('keydown', onKey)
-    ref.current?.querySelector('input,textarea,select,button')?.focus()
+    // Focus the first form field (not the header's close button) once, when the dialog opens.
+    const body = ref.current?.querySelector('[data-modal-body]')
+    ;(body?.querySelector('input,textarea,select') || body?.querySelector('button'))?.focus()
     return () => document.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open])
   if (!open) return null
   const w = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' }[size]
   return (
@@ -153,7 +160,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
           <h2 className="text-lg font-bold">{title}</h2>
           <button onClick={onClose} className="rounded-full p-1 text-ink-mute hover:bg-ink/5 hover:text-ink" aria-label="Close"><X className="size-5" /></button>
         </div>
-        <div className="px-5 py-4">{children}</div>
+        <div data-modal-body className="px-5 py-4">{children}</div>
         {footer && <div className="flex justify-end gap-2 border-t border-line px-5 py-3">{footer}</div>}
       </div>
     </div>

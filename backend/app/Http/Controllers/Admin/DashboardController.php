@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
 use App\Models\AuditLog;
 use App\Models\Order;
-use App\Models\Refund;
+use App\Models\ProductReport;
 use App\Models\SellerProfile;
 use App\Models\User;
 use App\Services\AnalyticsService;
@@ -32,7 +32,7 @@ class DashboardController extends Controller
                 'customers' => User::where('role', 'customer')->count(),
                 'approved_sellers' => SellerProfile::where('status', 'approved')->count(),
                 'pending_sellers' => SellerProfile::where('status', 'pending')->count(),
-                'open_disputes' => Refund::whereIn('status', ['requested', 'approved'])->count(),
+                'open_reports' => ProductReport::where('status', 'open')->count(),
             ],
             'sales' => $this->analytics->salesSeries(null, $from, $to),
             'status_breakdown' => $this->analytics->statusBreakdown(null, $from, $to),

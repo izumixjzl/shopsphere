@@ -28,6 +28,14 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('shopsphere:unauthorized', onUnauthorized)
   }, [])
 
+  // The token lives in localStorage, which all tabs share. If another tab signs in
+  // or out, follow it here too, so this tab never shows one user while acting as another.
+  useEffect(() => {
+    const onStorage = (e) => { if (e.key === tokenStore.key || e.key === null) refresh() }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [refresh])
+
   const login = useCallback(async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password })
     tokenStore.set(data.token)

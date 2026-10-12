@@ -68,8 +68,11 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
         Route::post('order-items/{orderItem}/review', [Customer\ReviewController::class, 'store'])->name('reviews.store');
 
+        // Requests are final once filed: no update/delete routes, so details and proof can't be changed.
         Route::get('refunds', [Customer\RefundController::class, 'index'])->name('refunds.index');
         Route::post('order-items/{orderItem}/refunds', [Customer\RefundController::class, 'store'])->name('refunds.store');
+
+        Route::post('products/{product}/reports', [Customer\ProductReportController::class, 'store'])->name('product-reports.store');
     });
 
     // ---- Seller --------------------------------------------------------------
@@ -97,6 +100,11 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
             Route::get('orders', [Seller\OrderController::class, 'index'])->name('orders.index');
             Route::get('orders/{sellerOrder}', [Seller\OrderController::class, 'show'])->name('orders.show');
             Route::patch('orders/{sellerOrder}/status', [Seller\OrderController::class, 'updateStatus'])->name('orders.status');
+
+            // The seller has the final say on returns / disputes for their orders.
+            Route::get('refunds', [Seller\RefundController::class, 'index'])->name('refunds.index');
+            Route::post('refunds/{refund}/decide', [Seller\RefundController::class, 'decide'])->name('refunds.decide');
+            Route::post('refunds/{refund}/refunded', [Seller\RefundController::class, 'markRefunded'])->name('refunds.refunded');
         });
     });
 
@@ -123,13 +131,13 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('products', [Admin\ProductModerationController::class, 'index'])->name('products.index');
         Route::patch('products/{product}/moderation', [Admin\ProductModerationController::class, 'moderate'])->name('products.moderate');
 
+        Route::get('reports', [Admin\ProductReportController::class, 'index'])->name('reports.index');
+        Route::post('reports/{report}/resolve', [Admin\ProductReportController::class, 'resolve'])->name('reports.resolve');
+
         Route::get('orders', [Admin\OrderController::class, 'index'])->name('orders.index');
         Route::get('orders/{order}', [Admin\OrderController::class, 'show'])->name('orders.show');
         Route::patch('seller-orders/{sellerOrder}/status', [Admin\OrderController::class, 'updateSellerOrder'])->name('seller-orders.status');
 
-        Route::get('refunds', [Admin\RefundController::class, 'index'])->name('refunds.index');
-        Route::post('refunds/{refund}/decide', [Admin\RefundController::class, 'decide'])->name('refunds.decide');
-        Route::post('refunds/{refund}/refunded', [Admin\RefundController::class, 'markRefunded'])->name('refunds.refunded');
 
         Route::get('payouts', [Admin\PayoutController::class, 'index'])->name('payouts.index');
         Route::get('payouts/sellers', [Admin\PayoutController::class, 'sellers'])->name('payouts.sellers');

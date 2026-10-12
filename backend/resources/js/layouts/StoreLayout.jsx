@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Heart, LayoutDashboard, LogOut, Package, Search, ShoppingBag, User } from 'lucide-react'
+import { Heart, LayoutDashboard, LifeBuoy, LogOut, Package, Search, ShoppingBag, User } from 'lucide-react'
 import Logo from '../components/Logo'
 import NotificationBell from '../components/NotificationBell'
 import { Button } from '../components/ui'
@@ -34,7 +34,7 @@ function AccountMenu() {
   }, [])
 
   const items = user.role === 'customer'
-    ? [['/account/orders', 'My orders', Package], ['/account/wishlist', 'Wishlist', Heart], ['/account', 'Account & addresses', User]]
+    ? [['/account/orders', 'My orders', Package], ['/account/returns', 'My returns', LifeBuoy], ['/account/wishlist', 'Wishlist', Heart], ['/account', 'Account & addresses', User]]
     : [[user.role === 'admin' ? '/admin' : '/seller', 'Open dashboard', LayoutDashboard]]
 
   return (

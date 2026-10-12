@@ -35,10 +35,11 @@ class PayoutController extends Controller
 
         // Sellers with money ready to pay out.
         $payable = CommissionRecord::query()
-            ->where('status', 'payable')->whereNull('payout_id')
+            // Qualified columns: seller_profiles also has a `status` column.
+            ->where('commission_records.status', 'payable')->whereNull('commission_records.payout_id')
             ->join('seller_profiles', 'seller_profiles.user_id', '=', 'commission_records.seller_id')
             ->groupBy('commission_records.seller_id', 'seller_profiles.store_name')
-            ->selectRaw('commission_records.seller_id, seller_profiles.store_name, SUM(net_amount) as amount, COUNT(*) as records')
+            ->selectRaw('commission_records.seller_id, seller_profiles.store_name, SUM(commission_records.net_amount) as amount, COUNT(*) as records')
             ->get();
 
         return response()->json(['payouts' => $payouts, 'payable_by_seller' => $payable]);

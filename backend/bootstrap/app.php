@@ -18,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    // Private-channel auth for Reverb at POST /api/broadcasting/auth, using the Sanctum bearer token.
+    ->withBroadcasting(__DIR__.'/../routes/channels.php', ['prefix' => 'api', 'middleware' => ['auth:sanctum']])
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'role' => EnsureRole::class,

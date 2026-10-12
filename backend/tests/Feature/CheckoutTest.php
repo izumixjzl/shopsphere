@@ -7,6 +7,8 @@ use App\Models\Cart;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CheckoutTest extends TestCase
@@ -144,6 +146,12 @@ class CheckoutTest extends TestCase
 
         // Other sellers can't see it.
         $this->actingAsRole($this->sellerB)->getJson("/api/seller/orders/{$soId}")->assertForbidden();
+
+        // The admin payouts page lists the seller's delivered earnings as ready to pay.
+        $this->actingAsRole(User::factory()->admin()->create())->getJson('/api/admin/payouts')
+            ->assertOk()
+            ->assertJsonPath('payable_by_seller.0.seller_id', $this->sellerA->id)
+            ->assertJsonPath('payable_by_seller.0.records', 1);
     }
 
     public function test_review_only_after_delivery_and_once(): void
@@ -168,5 +176,88 @@ class CheckoutTest extends TestCase
 
         $this->assertEquals(4.0, (float) $p->fresh()->rating_avg);
         $this->assertSame(1, $p->fresh()->rating_count);
+    }
+
+    public function test_damage_return_requires_proof_and_stores_it_privately(): void
+    {
+        Storage::fake('local');
+        $p = Product::factory()->for($this->sellerA, 'seller')->withStock(5)->create();
+        $this->addToCart($p, 1);
+        $order = $this->checkout()->json();
+        $itemId = $order['seller_orders'][0]['items'][0]['id'];
+        $soId = $order['seller_orders'][0]['id'];
+        foreach ([['status' => 'confirmed'], ['status' => 'packed'], ['status' => 'shipped', 'courier' => 'LBC'], ['status' => 'delivered']] as $step) {
+            $this->actingAsRole($this->sellerA)->patchJson("/api/seller/orders/{$soId}/status", $step)->assertOk();
+        }
+        $url = "/api/order-items/{$itemId}/refunds";
+        $damaged = ['type' => 'return', 'reason' => 'Item arrived damaged'];
+
+        $this->actingAsRole($this->customer)->postJson($url, $damaged)->assertJsonValidationErrors('evidence');
+        $this->actingAsRole($this->customer)->postJson($url, $damaged + ['evidence' => [UploadedFile::fake()->create('x.exe', 10)]])
+            ->assertJsonValidationErrors('evidence.0');
+
+        $this->actingAsRole($this->customer)->post($url, $damaged + ['evidence' => [
+            UploadedFile::fake()->image('crack.jpg'),
+            UploadedFile::fake()->create('unboxing.mp4', 2048, 'video/mp4'),
+        ]], ['Accept' => 'application/json'])
+            ->assertCreated()
+            ->assertJsonCount(2, 'data.attachments')
+            ->assertJsonPath('data.attachments.1.kind', 'video')
+            ->assertJsonMissingPath('data.attachments.0.path');
+
+        $attachment = \App\Models\RefundAttachment::first();
+        Storage::disk('local')->assertExists($attachment->path);
+
+        // Returns are the seller's business; the admin area has no returns endpoint.
+        $admin = User::factory()->admin()->create();
+        $this->actingAsRole($admin)->getJson('/api/admin/refunds')->assertNotFound();
+
+        // The seller sees the request and proof; other sellers don't.
+        $this->actingAsRole($this->sellerA)->getJson('/api/seller/refunds')
+            ->assertJsonCount(1, 'data')->assertJsonCount(2, 'data.0.attachments');
+        $this->actingAsRole($this->sellerB)->getJson('/api/seller/refunds')->assertJsonCount(0, 'data');
+
+        // The customer sees what they filed, but can't change it afterwards.
+        $refundId = $this->actingAsRole($this->customer)->getJson('/api/refunds')
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.reason', 'Item arrived damaged')
+            ->json('data.0.id');
+        foreach (['patchJson', 'putJson', 'deleteJson'] as $method) {
+            $this->assertContains($this->actingAsRole($this->customer)->$method("/api/refunds/{$refundId}", ['reason' => 'Changed my mind'])->status(), [404, 405]);
+        }
+        $this->actingAsRole($this->customer)->postJson("/api/refunds/{$refundId}/attachments")->assertNotFound();
+        $this->assertDatabaseHas('refunds', ['id' => $refundId, 'reason' => 'Item arrived damaged']);
+        $this->assertSame(2, \App\Models\RefundAttachment::count());
+    }
+
+    public function test_seller_has_final_say_on_returns_and_records_the_refund(): void
+    {
+        $p = Product::factory()->for($this->sellerA, 'seller')->withStock(5)->create(['price' => 100]);
+        $this->addToCart($p, 1);
+        $order = $this->checkout()->json();
+        $itemId = $order['seller_orders'][0]['items'][0]['id'];
+        $soId = $order['seller_orders'][0]['id'];
+        foreach ([['status' => 'confirmed'], ['status' => 'packed'], ['status' => 'shipped', 'courier' => 'LBC'], ['status' => 'delivered']] as $step) {
+            $this->actingAsRole($this->sellerA)->patchJson("/api/seller/orders/{$soId}/status", $step)->assertOk();
+        }
+        $refundId = $this->actingAsRole($this->customer)
+            ->postJson("/api/order-items/{$itemId}/refunds", ['type' => 'return', 'reason' => 'Changed my mind'])
+            ->assertCreated()->json('data.id');
+
+        // Only the store that sold the item can decide.
+        $this->actingAsRole($this->sellerB)->postJson("/api/seller/refunds/{$refundId}/decide", ['decision' => 'approved'])->assertNotFound();
+        $this->actingAsRole($this->sellerA)->postJson("/api/seller/refunds/{$refundId}/decide", ['decision' => 'rejected'])
+            ->assertJsonValidationErrors('resolution_note');
+        $this->actingAsRole($this->sellerA)->postJson("/api/seller/refunds/{$refundId}/refunded")->assertUnprocessable(); // not approved yet
+
+        $this->actingAsRole($this->sellerA)->postJson("/api/seller/refunds/{$refundId}/decide", ['decision' => 'approved', 'resolution_note' => 'Ship it back'])
+            ->assertOk()->assertJsonPath('data.status', 'approved');
+        $this->actingAsRole($this->sellerA)->postJson("/api/seller/refunds/{$refundId}/decide", ['decision' => 'rejected', 'resolution_note' => 'x'])
+            ->assertUnprocessable(); // decision is final
+
+        $this->actingAsRole($this->sellerA)->postJson("/api/seller/refunds/{$refundId}/refunded")->assertOk()->assertJsonPath('data.status', 'refunded');
+
+        $this->assertSame(5, $p->fresh()->inventory->quantity); // returned unit back in stock
+        $this->assertDatabaseHas('notifications', ['user_id' => $this->customer->id, 'type' => 'refund.approved']);
+        $this->assertDatabaseHas('notifications', ['user_id' => $this->customer->id, 'type' => 'refund.paid']);
     }
 }

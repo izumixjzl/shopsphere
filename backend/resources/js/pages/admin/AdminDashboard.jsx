@@ -23,7 +23,7 @@ export default function AdminDashboard() {
         <StatCard label="Gross merchandise value" value={money(k.gross_sales)} {...changeNote(k.gross_sales_change_pct)} />
         <StatCard label="Commission earned" value={money(k.commission)} note={`${k.orders} seller orders`} />
         <StatCard label="Sellers" value={k.approved_sellers} note={k.pending_sellers ? `${k.pending_sellers} awaiting approval` : 'No pending applications'} tone={k.pending_sellers ? 'warn' : undefined} />
-        <StatCard label="Open disputes" value={k.open_disputes} note={`${k.customers} customers`} tone={k.open_disputes ? 'warn' : undefined} />
+        <StatCard label="Open listing reports" value={k.open_reports} note={`${k.customers} customers`} tone={k.open_reports ? 'warn' : undefined} />
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[2fr_1fr]">

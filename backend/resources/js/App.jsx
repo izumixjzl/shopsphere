@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Outlet, Route, Routes } from 'react-router-dom'
 import {
-  BarChart3, ClipboardList, FolderTree, History, LayoutDashboard, LifeBuoy, Package, Settings, ShoppingCart, Store, Users, Wallet,
+  BarChart3, ClipboardList, Flag, FolderTree, History, LayoutDashboard, LifeBuoy, Package, Settings, ShoppingCart, Store, Users, Wallet,
 } from 'lucide-react'
 import { GuestOnly, RequireRole } from './components/RouteGuards'
 import { Button, EmptyState, PageLoader } from './components/ui'
@@ -18,10 +18,12 @@ const Cart = lazy(() => import('./pages/store/Cart'))
 const Checkout = lazy(() => import('./pages/store/Checkout'))
 const Orders = lazy(() => import('./pages/account/Orders'))
 const OrderDetail = lazy(() => import('./pages/account/OrderDetail'))
+const Returns = lazy(() => import('./pages/account/Returns'))
 const Wishlist = lazy(() => import('./pages/account/Wishlist'))
 const Account = lazy(() => import('./pages/account/Account'))
 const Login = lazy(() => import('./pages/auth/Login'))
 const Register = lazy(() => import('./pages/auth/Register'))
+const Notifications = lazy(() => import('./pages/Notifications'))
 
 const SellerDashboard = lazy(() => import('./pages/seller/SellerDashboard'))
 const SellerProducts = lazy(() => import('./pages/seller/SellerProducts'))
@@ -30,6 +32,7 @@ const SellerOrders = lazy(() => import('./pages/seller/SellerOrders'))
 const SellerOrderDetail = lazy(() => import('./pages/seller/SellerOrderDetail'))
 const SellerFinance = lazy(() => import('./pages/seller/SellerFinance'))
 const StoreSettings = lazy(() => import('./pages/seller/StoreSettings'))
+const SellerReturns = lazy(() => import('./pages/seller/SellerReturns'))
 const SellerPending = lazy(() => import('./pages/seller/SellerPending'))
 
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
@@ -39,13 +42,14 @@ const AdminCategories = lazy(() => import('./pages/admin/AdminCategories'))
 const AdminProducts = lazy(() => import('./pages/admin/AdminProducts'))
 const AdminOrders = lazy(() => import('./pages/admin/AdminOrders').then((m) => ({ default: m.AdminOrders })))
 const AdminOrderDetail = lazy(() => import('./pages/admin/AdminOrders').then((m) => ({ default: m.AdminOrderDetail })))
-const AdminRefunds = lazy(() => import('./pages/admin/AdminRefunds'))
 const AdminPayouts = lazy(() => import('./pages/admin/AdminPayouts'))
 const AdminAuditLogs = lazy(() => import('./pages/admin/AdminAuditLogs'))
+const AdminReports = lazy(() => import('./pages/admin/AdminReports'))
 
 const SELLER_NAV = [
   ['/seller', 'Overview', LayoutDashboard, true],
   ['/seller/orders', 'Orders', ClipboardList],
+  ['/seller/returns', 'Returns', LifeBuoy],
   ['/seller/products', 'Products', Package],
   ['/seller/finance', 'Earnings', Wallet],
   ['/seller/store', 'Store settings', Settings],
@@ -56,8 +60,8 @@ const ADMIN_NAV = [
   ['/admin/sellers', 'Sellers', Store],
   ['/admin/orders', 'Orders', ShoppingCart],
   ['/admin/products', 'Listings', Package],
+  ['/admin/reports', 'Reports', Flag],
   ['/admin/categories', 'Categories', FolderTree],
-  ['/admin/refunds', 'Returns & disputes', LifeBuoy],
   ['/admin/payouts', 'Payouts', Wallet],
   ['/admin/users', 'Users', Users],
   ['/admin/audit-logs', 'Audit log', History],
@@ -89,6 +93,8 @@ export default function App() {
             <Route path="account/orders" element={<Orders />} />
             <Route path="account/orders/:id" element={<OrderDetail />} />
             <Route path="account/wishlist" element={<Wishlist />} />
+            <Route path="account/returns" element={<Returns />} />
+            <Route path="account/notifications" element={<Notifications framed />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Route>
@@ -101,10 +107,13 @@ export default function App() {
         <Route element={<RequireRole roles={['seller']} />}>
           <Route path="seller" element={<DashboardLayout nav={SELLER_NAV} area="Seller" />}>
             <Route path="store" element={<StoreSettings />} />
+            {/* Outside the approval gate so pending sellers can read their approval notices. */}
+            <Route path="notifications" element={<Notifications />} />
             <Route element={<ApprovedSellerOnly />}>
               <Route index element={<SellerDashboard />} />
               <Route path="orders" element={<SellerOrders />} />
               <Route path="orders/:id" element={<SellerOrderDetail />} />
+              <Route path="returns" element={<SellerReturns />} />
               <Route path="products" element={<SellerProducts />} />
               <Route path="products/new" element={<ProductForm />} />
               <Route path="products/:id" element={<ProductForm />} />
@@ -122,9 +131,10 @@ export default function App() {
             <Route path="products" element={<AdminProducts />} />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="orders/:id" element={<AdminOrderDetail />} />
-            <Route path="refunds" element={<AdminRefunds />} />
             <Route path="payouts" element={<AdminPayouts />} />
             <Route path="audit-logs" element={<AdminAuditLogs />} />
+            <Route path="reports" element={<AdminReports />} />
+            <Route path="notifications" element={<Notifications />} />
           </Route>
         </Route>
       </Routes>

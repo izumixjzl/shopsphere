@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Heart, Minus, PackageX, Plus, ShieldCheck, Store, Truck } from 'lucide-react'
+import { Flag, Heart, Minus, PackageX, Plus, ShieldCheck, Store, Truck } from 'lucide-react'
 import ProductCard from '../../components/ProductCard'
-import { Button, EmptyState, PageLoader, Pagination, Stars } from '../../components/ui'
+import { Button, EmptyState, Modal, PageLoader, Pagination, Select, Stars, Textarea } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
 import { useToast } from '../../context/ToastContext'
-import { errorMessage, fieldErrors } from '../../lib/api'
+import { api, errorMessage, fieldErrors } from '../../lib/api'
 import { date, money } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
 
@@ -56,6 +56,49 @@ function Reviews({ slug, product, breakdown }) {
   )
 }
 
+const REPORT_REASONS = [
+  ['counterfeit', 'Counterfeit or fake item'],
+  ['prohibited', 'Prohibited or illegal item'],
+  ['misleading', 'Misleading description or photos'],
+  ['offensive', 'Offensive content'],
+  ['scam', 'Suspected scam'],
+  ['other', 'Something else'],
+]
+
+function ReportModal({ product, onClose }) {
+  const [reason, setReason] = useState('counterfeit')
+  const [details, setDetails] = useState('')
+  const [errors, setErrors] = useState({})
+  const [saving, setSaving] = useState(false)
+  const toast = useToast()
+
+  async function submit() {
+    setSaving(true); setErrors({})
+    try {
+      const { data } = await api.post(`/products/${product.id}/reports`, { reason, details: details || null })
+      toast(data.message)
+      onClose()
+    } catch (e) {
+      const fe = fieldErrors(e)
+      setErrors(Object.keys(fe).length ? fe : { details: errorMessage(e) })
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Report this listing"
+      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="danger" loading={saving} onClick={submit}>Send report</Button></>}>
+      <div className="grid gap-4">
+        <p className="text-sm text-ink-soft">Tell us what's wrong with “{product.name}”. Our team reviews every report; the seller won't see who sent it.</p>
+        <Select label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} error={errors.reason}>
+          {REPORT_REASONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </Select>
+        <Textarea label="Details" value={details} onChange={(e) => setDetails(e.target.value)} maxLength={1000} error={errors.details}
+          hint={reason === 'other' ? 'Required. Describe the problem.' : 'Optional, but helps us act faster.'} />
+      </div>
+    </Modal>
+  )
+}
+
 export default function ProductDetail() {
   const { slug } = useParams()
   const { data, loading, error } = useFetch(`/products/${slug}`)
@@ -66,6 +109,7 @@ export default function ProductDetail() {
   const [qty, setQty] = useState(1)
   const [activeImg, setActiveImg] = useState(0)
   const [busy, setBusy] = useState(null)
+  const [reporting, setReporting] = useState(false)
 
   if (loading) return <PageLoader />
   if (error || !data) {
@@ -165,6 +209,15 @@ export default function ProductDetail() {
             <li className="flex gap-3"><Truck className="size-5 shrink-0 text-sphere" /> Ships from {p.seller?.store_name}. Flat shipping per store at checkout.</li>
             <li className="flex gap-3"><ShieldCheck className="size-5 shrink-0 text-sphere" /> Pay cash on delivery. Return within 7 days of delivery.</li>
           </ul>
+
+          {/* Shoppers (or guests, who sign in first) can flag a listing for admin review. */}
+          {(!user || enabled) && (
+            <button onClick={() => (user ? setReporting(true) : navigate('/login', { state: { from: `/products/${slug}` } }))}
+              className="mt-3 inline-flex items-center gap-1.5 text-sm text-ink-mute hover:text-coral">
+              <Flag className="size-4" /> Report this listing
+            </button>
+          )}
+          {reporting && <ReportModal product={p} onClose={() => setReporting(false)} />}
 
           {p.description && (
             <div className="prose-product mt-8 max-w-prose text-ink-soft">

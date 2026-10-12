@@ -3,6 +3,7 @@ import axios from 'axios'
 const TOKEN_KEY = 'shopsphere.token'
 
 export const tokenStore = {
+  key: TOKEN_KEY,
   get() {
     try { return localStorage.getItem(TOKEN_KEY) } catch { return null }
   },
