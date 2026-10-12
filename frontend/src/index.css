@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+/*
+  ShopSphere design tokens
+  ink      #1B1F3B  text, dark surfaces
+  paper    #F7F8FC  page background (cool, not cream)
+  sphere   #4F3BD9  brand / primary actions
+  mango    #FFB020  prices on sale, highlights
+  leaf     #1F9D6B  success, in stock
+  coral    #E5484D  danger, out of stock
+*/
+@theme {
+  --color-ink: #1b1f3b;
+  --color-ink-soft: #4a5072;
+  --color-ink-mute: #7c82a3;
+  --color-paper: #f7f8fc;
+  --color-line: #e3e6f2;
+  --color-sphere: #4f3bd9;
+  --color-sphere-dark: #3a2aa8;
+  --color-sphere-tint: #eeebff;
+  --color-mango: #ffb020;
+  --color-mango-tint: #fff4dc;
+  --color-leaf: #1f9d6b;
+  --color-leaf-tint: #e3f6ee;
+  --color-coral: #e5484d;
+  --color-coral-tint: #fde8e9;
+
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-card: 14px;
+  --radius-field: 10px;
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  h1, h2, h3, h4 { @apply font-display; letter-spacing: -0.02em; line-height: 1.1; }
+  :focus-visible { outline: 2px solid var(--color-sphere); outline-offset: 2px; border-radius: 6px; }
+  ::selection { background: var(--color-mango); color: var(--color-ink); }
+}
+
+@layer components {
+  .field {
+    @apply w-full rounded-[var(--radius-field)] border border-line bg-white px-3.5 py-2.5 text-[15px] text-ink placeholder:text-ink-mute
+      transition-colors focus:border-sphere focus:outline-none focus:ring-3 focus:ring-sphere/15 disabled:bg-paper;
+  }
+  .field-error { @apply border-coral focus:border-coral focus:ring-coral/15; }
+  .card { @apply rounded-[var(--radius-card)] border border-line bg-white; }
+  .prose-product p { @apply mb-3; }
+  .prose-product ul { @apply mb-3 list-disc pl-5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* The one orchestrated motion moment: the hero orbit. */
+@keyframes orbit {
+  from { transform: rotate(0deg) translateX(var(--r)) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(var(--r)) rotate(-360deg); }
+}
+.orbit-item { animation: orbit var(--t, 40s) linear infinite; animation-delay: var(--d, 0s); }
+
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+.skeleton { position: relative; overflow: hidden; background: #eceef7; }
+.skeleton::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent);
+  animation: shimmer 1.4s infinite;
+}
