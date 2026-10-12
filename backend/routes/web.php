@@ -2,8 +2,5 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => response()->json([
-    'name' => config('app.name'),
-    'api' => url('/api'),
-    'status' => 'ok',
-]));
+// Every non-API URL loads the React app; React Router handles the page from there.
+Route::view('/{any?}', 'app')->where('any', '^(?!api|storage|up).*$');

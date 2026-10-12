@@ -26,7 +26,7 @@ See [`docs/DATABASE.md`](docs/DATABASE.md) for the ERD and schema decisions and 
 
 ```
 shopsphere/
-├── backend/                 Laravel 12 API
+├── backend/                 Laravel 12 API + React app (served together)
 │   ├── app/Enums            Roles and status state machines
 │   ├── app/Http/Controllers Auth, Catalog, Customer/*, Seller/*, Admin/*
 │   ├── app/Http/Middleware  EnsureRole, EnsureSellerApproved
@@ -34,9 +34,9 @@ shopsphere/
 │   ├── app/Services         Checkout, Inventory, SellerOrder (fulfilment), Analytics, Report, Notification, AuditLogger, Money
 │   ├── database/migrations  All 22 domain tables + Laravel/Sanctum tables
 │   ├── database/seeders     Demo marketplace with real orders placed through the services
+│   ├── resources/js         React + Vite + Tailwind: {layouts,components,pages/{store,account,auth,seller,admin},context,lib}
+│   ├── resources/views      app.blade.php (loads the React app) and PDF report views
 │   └── tests                Feature tests for auth, roles, products, checkout, stock, fulfilment, reviews
-├── frontend/                React + Vite + Tailwind
-│   └── src/{layouts,components,pages/{store,account,auth,seller,admin},context,lib}
 └── docs/
 ```
 
@@ -45,21 +45,23 @@ shopsphere/
 Requirements: PHP 8.2+, Composer, MySQL 8, Node 20+.
 
 ```bash
-# 1. API
 cd backend
 composer install
+npm install
 cp .env.example .env          # set DB_DATABASE / DB_USERNAME / DB_PASSWORD
 php artisan key:generate
 php artisan migrate --seed
 php artisan storage:link      # serves uploaded product images
-php artisan serve             # http://localhost:8000
 
-# 2. Frontend (new terminal)
-cd frontend
-npm install
-cp .env.example .env          # VITE_API_URL=http://localhost:8000/api
-npm run dev                   # http://localhost:5173
+php artisan serve             # terminal 1 — open http://localhost:8000
+npm run dev                   # terminal 2 — hot-reloads the React app
 ```
+
+Laravel serves both the React app and the API. Every URL except `/api/*`, `/storage/*` and `/up` loads `resources/views/app.blade.php`, and React Router takes it from there.
+
+### Deploying
+
+Build the frontend once with `npm run build` (output goes to `public/build/`), then deploy the `backend/` folder to any PHP 8.2+ host with MySQL, pointing the web root at `backend/public`. Node is only needed at build time, not on the server.
 
 Demo accounts (password `password123`): `customer@shopsphere.test`, `seller1@shopsphere.test` (also seller2, seller3), `pending@shopsphere.test` (awaiting approval), `admin@shopsphere.test`. The login page has one-click buttons for these.
 
