@@ -66,7 +66,9 @@ export function AdminOrderDetail() {
             <section key={so.id} className="card overflow-hidden">
               <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
                 <div><div className="font-semibold">{so.seller?.store_name}</div><div className="text-xs text-ink-mute">{so.reference}</div></div>
-                <FulfilmentActions sellerOrder={so} endpoint={`/admin/seller-orders/${so.id}/status`} onUpdated={setData} />
+                <FulfilmentActions sellerOrder={so} endpoint={`/admin/seller-orders/${so.id}/status`} onUpdated={setData}
+                  awaitingPayment={o.payment_method !== 'cod' && o.payment_status !== 'paid'}
+                  paidOnline={o.payment_method !== 'cod'} />
               </header>
               <div className="px-5 py-4"><ShipmentTimeline sellerOrder={so} /></div>
               <ul className="divide-y divide-line border-t border-line text-sm">
@@ -91,8 +93,13 @@ export function AdminOrderDetail() {
             <h2 className="mb-2 text-lg font-bold">Payments</h2>
             <ul className="space-y-2">
               {o.payments.map((p) => (
-                <li key={p.id} className="flex items-center justify-between">
-                  <span className="uppercase">{p.method.replace('_', ' ')}</span>
+                <li key={p.id} className="flex items-start justify-between gap-2">
+                  <span>
+                    <span className="uppercase">{p.method.replace('_', ' ')}</span>
+                    {p.transaction_reference && <span className="block font-mono text-xs text-ink-mute">{p.transaction_reference}</span>}
+                    {p.failure_reason && p.status !== 'paid' && <span className="block text-xs text-ink-mute">{p.failure_reason}</span>}
+                    {p.needs_refund && <span className="block text-xs font-semibold text-coral">Refund needed</span>}
+                  </span>
                   <span className="flex items-center gap-2 tabular-nums">{money(p.amount)} <StatusBadge status={p.status} /></span>
                 </li>
               ))}

@@ -7,13 +7,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Payment extends Model
 {
-    protected $fillable = ['order_id', 'method', 'amount', 'status', 'transaction_reference', 'paid_at', 'recorded_by', 'meta'];
+    protected $fillable = [
+        'order_id', 'method', 'provider', 'amount', 'status', 'transaction_reference', 'checkout_url',
+        'paid_at', 'expires_at', 'failure_reason', 'recorded_by', 'meta',
+    ];
 
     protected function casts(): array
     {
         return [
             'amount' => 'decimal:2',
             'paid_at' => 'datetime',
+            'expires_at' => 'datetime',
             'meta' => 'array',
         ];
     }

@@ -88,6 +88,7 @@ class NotificationService
                 default => null,
             },
             UserRole::Admin => match ($group) {
+                'payment' => isset($data['order_id']) ? "/admin/orders/{$data['order_id']}" : '/admin/orders',
                 'seller' => '/admin/sellers',
                 'product_report' => '/admin/reports',
                 default => null,

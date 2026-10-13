@@ -16,6 +16,7 @@ const ProductDetail = lazy(() => import('./pages/store/ProductDetail'))
 const StorePage = lazy(() => import('./pages/store/StorePage'))
 const Cart = lazy(() => import('./pages/store/Cart'))
 const Checkout = lazy(() => import('./pages/store/Checkout'))
+const SandboxPay = lazy(() => import('./pages/store/SandboxPay'))
 const Orders = lazy(() => import('./pages/account/Orders'))
 const OrderDetail = lazy(() => import('./pages/account/OrderDetail'))
 const Returns = lazy(() => import('./pages/account/Returns'))
@@ -89,6 +90,7 @@ export default function App() {
           <Route element={<RequireRole roles={['customer']} />}>
             <Route path="cart" element={<Cart />} />
             <Route path="checkout" element={<Checkout />} />
+            <Route path="sandbox-pay/:reference" element={<SandboxPay />} />
             <Route path="account" element={<Account />} />
             <Route path="account/orders" element={<Orders />} />
             <Route path="account/orders/:id" element={<OrderDetail />} />

@@ -2,7 +2,16 @@
 
 use App\Models\Inventory;
 use App\Services\NotificationService;
+use App\Services\PaymentService;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
+
+// Cancel online orders that weren't paid in time and release their stock.
+Artisan::command('payments:expire', function (PaymentService $payments) {
+    $this->info($payments->expireUnpaidOrders().' unpaid order(s) expired.');
+})->purpose('Cancel unpaid online orders past their payment deadline');
+
+Schedule::command('payments:expire')->everyMinute()->withoutOverlapping();
 
 // Daily digest: notify sellers about products at or below their low-stock threshold.
 Schedule::call(function (NotificationService $notifications) {

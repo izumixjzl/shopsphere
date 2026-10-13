@@ -35,7 +35,7 @@ class SellerOrderService
     /**
      * @param  array{courier_code?:string,courier?:string,tracking_number?:string,note?:string,reason?:string}  $details
      */
-    public function transition(SellerOrder $sellerOrder, SellerOrderStatus $next, array $details = []): SellerOrder
+    public function transition(SellerOrder $sellerOrder, SellerOrderStatus $next, array $details = [], bool $notify = true): SellerOrder
     {
         $old = $sellerOrder->status;
 
@@ -47,6 +47,13 @@ class SellerOrderService
                 throw ValidationException::withMessages([
                     'status' => "Cannot change order from {$so->status->value} to {$next->value}.",
                 ]);
+            }
+            // Online orders: nothing ships before the gateway confirms payment. Cancelling is still allowed.
+            if ($next !== SellerOrderStatus::Cancelled) {
+                $order = $so->order()->first(['payment_method', 'payment_status']);
+                if ($order->payment_method !== 'cod' && $order->payment_status !== 'paid') {
+                    throw ValidationException::withMessages(['status' => 'Wait until the customer has paid before processing this order.']);
+                }
             }
             if ($next === SellerOrderStatus::Shipped) {
                 [$code, $name] = Couriers::resolve($details['courier_code'] ?? null, $details['courier'] ?? null);
@@ -91,12 +98,18 @@ class SellerOrderService
 
             $order = $so->order()->first();
             $order->syncStatus();
-            $this->syncPayment($order->fresh());
+            $order->payment_method === 'cod'
+                ? $this->syncPayment($order->fresh())
+                : $this->syncOnlinePayment($order->fresh(), $so, $next);
         });
 
         $sellerOrder->refresh();
 
         $this->audit->log('seller_order.status_changed', $sellerOrder, ['status' => $old->value], ['status' => $next->value] + $details);
+
+        if (! $notify) {
+            return $sellerOrder;
+        }
 
         $this->notifications->send(
             (int) $sellerOrder->order()->value('user_id'),
@@ -163,5 +176,33 @@ class SellerOrderService
         } elseif ($order->status === OrderStatus::Cancelled && $payment->status === 'pending') {
             $payment->update(['status' => 'failed', 'meta' => ['note' => 'Order cancelled before delivery']]);
         }
+    }
+
+    /**
+     * Online orders when a seller order is cancelled:
+     *  - unpaid: open attempts for the old total are closed so the customer pays the new total;
+     *  - paid: the cancelled part was already charged, so admins are told to refund it.
+     */
+    private function syncOnlinePayment($order, SellerOrder $so, SellerOrderStatus $next): void
+    {
+        if ($next !== SellerOrderStatus::Cancelled) {
+            return;
+        }
+
+        if ($order->payment_status === 'unpaid') {
+            $payable = $order->payableAmount();
+            $order->payments()->where('status', 'pending')->where('amount', '!=', $payable)->update([
+                'status' => 'cancelled',
+                'failure_reason' => $order->status === OrderStatus::Cancelled ? 'Order cancelled.' : 'Order total changed.',
+            ]);
+
+            return;
+        }
+
+        $amount = Money::fromCents(Money::toCents($so->subtotal) + Money::toCents($so->shipping_fee));
+        $this->audit->log('payment.needs_refund', $so, [], ['amount' => $amount]);
+        $this->notifications->sendToAdmins('payment.needs_refund', 'Refund needed',
+            "{$so->reference} was cancelled after the customer paid online. Refund ₱{$amount} for order {$order->order_number}.",
+            ['order_id' => $order->id]);
     }
 }

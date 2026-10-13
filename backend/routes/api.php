@@ -6,6 +6,7 @@ use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\CourierController;
 use App\Http\Controllers\Customer;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\Seller;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +27,10 @@ Route::name('catalog.')->group(function () {
     Route::get('stores/{slug}', [CatalogController::class, 'store'])->name('store.show');
     Route::get('stores/{slug}/reviews', [CatalogController::class, 'storeReviews'])->name('store.reviews');
 });
+
+// ---- Payment provider webhooks (no session; verified by signature) ---------
+Route::post('webhooks/payments/{provider}', PaymentWebhookController::class)
+    ->middleware('throttle:120,1')->name('webhooks.payments');
 
 // ---- Authentication ---------------------------------------------------------
 Route::prefix('auth')->name('auth.')->group(function () {
@@ -60,8 +65,14 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
         Route::apiResource('addresses', Customer\AddressController::class)->except('show');
 
+        Route::get('checkout/payment-methods', [Customer\OrderController::class, 'paymentMethods'])->name('checkout.payment-methods');
         Route::get('orders', [Customer\OrderController::class, 'index'])->name('orders.index');
-        Route::post('orders', [Customer\OrderController::class, 'store'])->name('orders.store'); // checkout
+        Route::post('orders', [Customer\OrderController::class, 'store'])->name('orders.store'); // checkout (Idempotency-Key header)
+        Route::post('orders/{order}/pay', [Customer\OrderController::class, 'pay'])->name('orders.pay');
+
+        // Stand-in for a provider's hosted checkout page; 404s unless the sandbox gateway is enabled.
+        Route::get('sandbox/payments/{reference}', [Customer\SandboxPaymentController::class, 'show'])->name('sandbox.show');
+        Route::post('sandbox/payments/{reference}/complete', [Customer\SandboxPaymentController::class, 'complete'])->name('sandbox.complete');
         Route::get('orders/{order}', [Customer\OrderController::class, 'show'])->name('orders.show');
         Route::post('orders/{order}/cancel', [Customer\OrderController::class, 'cancel'])->name('orders.cancel');
 

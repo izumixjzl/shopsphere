@@ -13,7 +13,7 @@ const LABELS = {
  * Buttons for the next allowed statuses of a seller order.
  * `endpoint` differs for sellers and admins; the server enforces the same rules.
  */
-export default function FulfilmentActions({ sellerOrder, endpoint, onUpdated }) {
+export default function FulfilmentActions({ sellerOrder, endpoint, onUpdated, awaitingPayment = false, paidOnline = false }) {
   const [pending, setPending] = useState(null)
   const [details, setDetails] = useState({ courier_code: '', courier: '', tracking_number: '', reason: '' })
   const [errors, setErrors] = useState({})
@@ -46,12 +46,15 @@ export default function FulfilmentActions({ sellerOrder, endpoint, onUpdated }) 
     } finally { setSaving(false) }
   }
 
-  const primary = next.find((s) => s !== 'cancelled' && s !== 'returned')
+  // Unpaid online orders can only be cancelled; the server enforces the same rule.
+  const primary = awaitingPayment ? null : next.find((s) => s !== 'cancelled' && s !== 'returned')
+  const others = next.filter((s) => s !== primary && (!awaitingPayment || s === 'cancelled'))
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      {awaitingPayment && <span className="rounded-full bg-mango-tint px-3 py-1.5 text-sm font-medium text-[#8a5a00]">Awaiting customer payment</span>}
       {primary && <Button onClick={() => setPending(primary)}>{LABELS[primary]}</Button>}
-      {next.filter((s) => s !== primary).map((s) => (
+      {others.map((s) => (
         <Button key={s} variant={s === 'cancelled' ? 'outline' : 'ghost'} onClick={() => setPending(s)}>{LABELS[s]}</Button>
       ))}
 
@@ -76,7 +79,9 @@ export default function FulfilmentActions({ sellerOrder, endpoint, onUpdated }) 
       <ConfirmDialog open={Boolean(pending) && pending !== 'shipped'} onClose={() => setPending(null)} onConfirm={submit} loading={saving}
         tone={pending === 'cancelled' ? 'danger' : 'primary'} title={`${LABELS[pending] || ''}?`} confirmLabel={LABELS[pending]}
         message={pending === 'cancelled' ? 'The customer is notified and the items go back into your stock.'
-          : pending === 'delivered' ? 'Confirm the courier has delivered the parcel and collected payment.'
+          : pending === 'delivered' ? (paidOnline
+            ? 'Confirm the courier has delivered the parcel. This order was paid online, so no cash is collected.'
+            : 'Confirm the courier has delivered the parcel and collected payment.')
           : pending === 'returned' ? 'Items go back into your stock and the commission for this order is reversed.'
           : 'The customer will be notified.'}>
         {pending === 'cancelled' && (

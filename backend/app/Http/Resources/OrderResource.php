@@ -24,7 +24,21 @@ class OrderResource extends JsonResource
             'customer' => $this->whenLoaded('customer', fn () => $this->customer?->only(['id', 'name', 'email'])),
             'seller_orders' => SellerOrderResource::collection($this->whenLoaded('sellerOrders')),
             'seller_orders_count' => $this->whenHas('seller_orders_count'),
-            'payments' => $this->whenLoaded('payments', fn () => $this->payments->map->only(['id', 'method', 'amount', 'status', 'paid_at', 'transaction_reference'])),
+            'payment_due_at' => $this->payment_due_at?->toIso8601String(),
+            // Every attempt, newest first; checkout_url only while the attempt can still be paid.
+            'payments' => $this->whenLoaded('payments', fn () => $this->payments->sortByDesc('id')->values()->map(fn ($p) => [
+                'id' => $p->id,
+                'method' => $p->method,
+                'provider' => $p->provider,
+                'amount' => $p->amount,
+                'status' => $p->status,
+                'transaction_reference' => $p->transaction_reference,
+                'failure_reason' => $p->failure_reason,
+                'checkout_url' => $p->status === 'pending' ? $p->checkout_url : null,
+                'needs_refund' => (bool) ($p->meta['needs_refund'] ?? false),
+                'paid_at' => $p->paid_at?->toIso8601String(),
+                'created_at' => $p->created_at?->toIso8601String(),
+            ])),
             'can_cancel' => $this->whenLoaded('sellerOrders', fn () => $this->sellerOrders->every(fn ($so) => $so->status->value === 'pending')),
         ];
     }

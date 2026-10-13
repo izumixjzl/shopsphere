@@ -13,6 +13,12 @@ Base URL: `http://localhost:8000/api`. Send `Accept: application/json`. Authenti
 | GET | `/stores/{slug}` | Storefront profile + stats (seller rating from verified purchases) |
 | GET | `/stores/{slug}/reviews` | Paginated verified reviews across all of the store's products |
 
+## Payment webhooks
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/webhooks/payments/{provider}` | No auth; verified by signature (sandbox: `X-Sandbox-Signature: t=<unix>,v1=<hmac_sha256(secret, "t.body")>`, 5-minute window). Each event id is processed once (`webhook_events`); amount and currency must match; a captured payment is never undone by a later "failed" event; money arriving for a cancelled order is recorded and flagged for refund. Replies 400 for bad signatures, 2xx once recorded. |
+
 ## Auth
 
 | Method | Path | Notes |
@@ -33,7 +39,10 @@ Base URL: `http://localhost:8000/api`. Send `Accept: application/json`. Authenti
 | POST | `/cart/items` | `product_id, quantity` (stock-checked) |
 | PATCH / DELETE | `/cart/items/{id}` | |
 | GET POST PUT DELETE | `/addresses[/{id}]` | |
-| POST | `/orders` | **Checkout**: `address_id, payment_method=cod, notes?` → parent order + seller orders |
+| GET | `/checkout/payment-methods` | `cod` plus enabled gateways (`sandbox` outside production) |
+| POST | `/orders` | **Checkout**: `address_id, payment_method, notes?, expected_total?` + `Idempotency-Key` header (8–64 chars, one per attempt). Prices, stock, shipping and commission are computed server-side; `expected_total` mismatch → 422 and nothing is charged. Same key again → the original order with `200` (first time `201`). Online methods return a pending payment with `checkout_url`. |
+| POST | `/orders/{id}/pay` | Online orders: open or reuse a payment attempt → `checkout_url`. Unpaid orders are cancelled and restocked after `PAYMENT_ONLINE_TIMEOUT_MINUTES` (default 30) by `payments:expire` (scheduled every minute). |
+| GET / POST | `/sandbox/payments/{reference}` · `…/complete` (`outcome` = paid/failed) | Sandbox stand-in for a hosted checkout; sends itself a signed webhook |
 | GET | `/orders`, `/orders/{id}` | With shipments and tracking |
 | POST | `/orders/{id}/cancel` | Only while every seller order is pending |
 | GET | `/wishlist`, `/wishlist/ids` · POST `/wishlist/{productId}` (toggle) | |

@@ -8,6 +8,62 @@ import { api, errorMessage, fieldErrors } from '../../lib/api'
 import { dateTime, money } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
 
+/** Totals, payment status, every payment attempt, and "Pay now" while an online order is unpaid. */
+function PaymentCard({ order: o }) {
+  const [paying, setPaying] = useState(false)
+  const navigate = useNavigate()
+  const toast = useToast()
+  const online = o.payment_method !== 'cod'
+  const awaiting = online && o.payment_status === 'unpaid' && o.status !== 'cancelled'
+  const attempts = online ? o.payments ?? [] : []
+
+  async function pay() {
+    setPaying(true)
+    try {
+      const { data } = await api.post(`/orders/${o.id}/pay`)
+      navigate(data.data.checkout_url)
+    } catch (e) { toast(Object.values(fieldErrors(e))[0] || errorMessage(e), 'error') } finally { setPaying(false) }
+  }
+
+  return (
+    <section className="card p-5 text-sm">
+      <h2 className="mb-2 text-base font-bold">Payment</h2>
+      {awaiting && (
+        <div className="mb-3">
+          <Alert tone="warn">
+            Waiting for your payment{o.payment_due_at && ` — pay before ${dateTime(o.payment_due_at)} or the order is cancelled`}.
+            {attempts[0]?.status === 'failed' && <> Last attempt: {attempts[0].failure_reason}</>}
+          </Alert>
+          <Button className="mt-3 w-full" loading={paying} onClick={pay}>Pay {money(o.grand_total)} now</Button>
+        </div>
+      )}
+      <dl className="space-y-1">
+        <div className="flex justify-between"><dt className="text-ink-soft">Subtotal</dt><dd>{money(o.subtotal)}</dd></div>
+        <div className="flex justify-between"><dt className="text-ink-soft">Shipping</dt><dd>{money(o.shipping_total)}</dd></div>
+        <div className="flex justify-between font-semibold"><dt>Total ({online ? 'paid online' : 'cash on delivery'})</dt><dd>{money(o.grand_total)}</dd></div>
+        <div className="flex justify-between pt-1"><dt className="text-ink-soft">Payment status</dt><dd><StatusBadge status={o.payment_status} /></dd></div>
+      </dl>
+      {attempts.length > 0 && (
+        <>
+          <h3 className="mt-4 font-sans text-xs font-semibold uppercase tracking-wide text-ink-mute">Payment attempts</h3>
+          <ul className="mt-1 divide-y divide-line">
+            {attempts.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-2 py-2">
+                <span>
+                  <span className="block">{dateTime(p.created_at)} · {money(p.amount)}</span>
+                  {p.transaction_reference && <span className="block font-mono text-xs text-ink-mute">{p.transaction_reference}</span>}
+                  {p.failure_reason && p.status !== 'paid' && <span className="block text-xs text-ink-mute">{p.failure_reason}</span>}
+                </span>
+                <StatusBadge status={p.status} />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  )
+}
+
 function ReviewModal({ item, onClose, onDone }) {
   const [rating, setRating] = useState(5)
   const [title, setTitle] = useState('')
@@ -185,7 +241,11 @@ export default function OrderDetail() {
       {state?.justPlaced && (
         <div className="mb-6 flex items-start gap-3 rounded-[var(--radius-card)] bg-leaf-tint p-5 text-leaf">
           <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
-          <div><div className="font-semibold">Thanks! Your order is in.</div><div className="text-sm text-ink-soft">Each store will confirm and ship its part. Prepare {money(o.grand_total)} in cash for the couriers.</div></div>
+          <div><div className="font-semibold">Thanks! Your order is in.</div><div className="text-sm text-ink-soft">
+            {o.payment_method === 'cod'
+              ? `Each store will confirm and ship its part. Prepare ${money(o.grand_total)} in cash for the couriers.`
+              : 'Your payment was received. Each store will now confirm and ship its part.'}
+          </div></div>
         </div>
       )}
 
@@ -238,15 +298,7 @@ export default function OrderDetail() {
           <h2 className="mb-2 text-base font-bold">Delivery address</h2>
           <p className="text-ink-soft">{addr.recipient_name} · {addr.phone}<br />{addr.line1}{addr.barangay && `, ${addr.barangay}`}<br />{addr.city}, {addr.province} {addr.postal_code}</p>
         </section>
-        <section className="card p-5 text-sm">
-          <h2 className="mb-2 text-base font-bold">Payment</h2>
-          <dl className="space-y-1">
-            <div className="flex justify-between"><dt className="text-ink-soft">Subtotal</dt><dd>{money(o.subtotal)}</dd></div>
-            <div className="flex justify-between"><dt className="text-ink-soft">Shipping</dt><dd>{money(o.shipping_total)}</dd></div>
-            <div className="flex justify-between font-semibold"><dt>Total (cash on delivery)</dt><dd>{money(o.grand_total)}</dd></div>
-            <div className="flex justify-between pt-1"><dt className="text-ink-soft">Payment status</dt><dd><StatusBadge status={o.payment_status} /></dd></div>
-          </dl>
-        </section>
+        <PaymentCard order={o} />
       </div>
 
       <ConfirmDialog open={confirmCancel} onClose={() => setConfirmCancel(false)} onConfirm={cancel} loading={cancelling}

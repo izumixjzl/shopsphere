@@ -18,7 +18,9 @@ export default function SellerOrderDetail() {
     <>
       <Link to="/seller/orders" className="text-sm text-ink-mute hover:text-ink">Orders</Link>
       <PageHeader title={so.reference} description={`Placed ${dateTime(so.order.placed_at)} by ${so.order.customer?.name}`}
-        actions={<FulfilmentActions sellerOrder={so} endpoint={`/seller/orders/${so.id}/status`} onUpdated={setData} />} />
+        actions={<FulfilmentActions sellerOrder={so} endpoint={`/seller/orders/${so.id}/status`} onUpdated={setData}
+          awaitingPayment={so.order.payment_method !== 'cod' && so.order.payment_status !== 'paid'}
+          paidOnline={so.order.payment_method !== 'cod'} />} />
 
       <div className="grid gap-5 xl:grid-cols-[1.6fr_1fr]">
         <div className="space-y-5">
@@ -52,7 +54,14 @@ export default function SellerOrderDetail() {
               <div className="flex justify-between"><dt className="text-ink-soft">Commission ({Number(so.commission_rate)}%)</dt><dd className="tabular-nums text-coral">−{money(so.commission_amount)}</dd></div>
               <div className="flex justify-between border-t border-line pt-2 font-semibold"><dt>You receive</dt><dd className="tabular-nums">{money(so.seller_earnings)}</dd></div>
             </dl>
-            <p className="mt-3 text-xs text-ink-mute">Collect {money(Number(so.subtotal) + Number(so.shipping_fee))} cash on delivery. Earnings become payable once delivered.</p>
+            <p className="mt-3 text-xs text-ink-mute">
+              {so.order.payment_method === 'cod'
+                ? `Collect ${money(Number(so.subtotal) + Number(so.shipping_fee))} cash on delivery.`
+                : so.order.payment_status === 'paid'
+                  ? 'The customer already paid online. Do not collect cash on delivery.'
+                  : 'Waiting for the customer to pay online. Do not ship until payment is confirmed.'}
+              {' '}Earnings become payable once delivered.
+            </p>
           </section>
         </div>
       </div>

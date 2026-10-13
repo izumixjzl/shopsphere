@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\OrderStatus;
+use App\Services\Money;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,7 +12,7 @@ class Order extends Model
 {
     protected $fillable = [
         'order_number', 'user_id', 'status', 'payment_method', 'payment_status',
-        'subtotal', 'shipping_total', 'grand_total', 'shipping_address', 'notes', 'placed_at',
+        'subtotal', 'shipping_total', 'grand_total', 'shipping_address', 'notes', 'placed_at', 'payment_due_at',
     ];
 
     protected function casts(): array
@@ -23,6 +24,7 @@ class Order extends Model
             'shipping_total' => 'decimal:2',
             'grand_total' => 'decimal:2',
             'placed_at' => 'datetime',
+            'payment_due_at' => 'datetime',
         ];
     }
 
@@ -49,6 +51,15 @@ class Order extends Model
     public function refunds(): HasMany
     {
         return $this->hasMany(Refund::class);
+    }
+
+    /** What the customer still owes for parts that weren't cancelled (online payments charge this). */
+    public function payableAmount(): string
+    {
+        $cents = $this->sellerOrders()->where('status', '!=', 'cancelled')->get()
+            ->sum(fn ($so) => Money::toCents($so->subtotal) + Money::toCents($so->shipping_fee));
+
+        return Money::fromCents($cents);
     }
 
     /** Recompute the parent status after any seller order changes. */

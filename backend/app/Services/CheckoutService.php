@@ -12,6 +12,8 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\SellerOrder;
 use App\Models\User;
+use App\Payments\GatewayRegistry;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -28,17 +30,66 @@ class CheckoutService
         private InventoryService $inventory,
         private NotificationService $notifications,
         private AuditLogger $audit,
+        private GatewayRegistry $gateways,
+        private PaymentService $payments,
     ) {}
 
-    public function checkout(User $customer, Address $address, ?string $notes = null): Order
-    {
+    /**
+     * Prices, stock, shipping and commission all come from the database, never from the client.
+     *
+     * @param  string|null  $checkoutKey  Idempotency key: a retry with the same key returns the first order
+     *                                    (check `$order->wasRecentlyCreated` to tell the two apart).
+     * @param  string|null  $expectedTotal  The total the customer saw; if prices moved since, nothing is charged.
+     */
+    public function checkout(
+        User $customer,
+        Address $address,
+        ?string $notes = null,
+        string $paymentMethod = 'cod',
+        ?string $checkoutKey = null,
+        ?string $expectedTotal = null,
+    ): Order {
         if ($address->user_id !== $customer->id) {
             throw ValidationException::withMessages(['address_id' => 'Invalid address.']);
         }
+        if ($paymentMethod !== 'cod' && ! $this->gateways->isEnabled($paymentMethod)) {
+            throw ValidationException::withMessages(['payment_method' => 'This payment method is not available.']);
+        }
 
-        $order = DB::transaction(function () use ($customer, $address, $notes) {
+        try {
+            $order = $this->placeOrder($customer, $address, $notes, $paymentMethod, $checkoutKey, $expectedTotal);
+        } catch (UniqueConstraintViolationException $e) {
+            // Two requests with the same key raced past the lookup; the loser returns the winner's order.
+            $order = $checkoutKey ? Order::where('user_id', $customer->id)->where('checkout_key', $checkoutKey)->first() : null;
+            if (! $order) {
+                throw $e;
+            }
+        }
+
+        if (! $order->wasRecentlyCreated) {
+            return $order->load(['sellerOrders.items', 'payments']);
+        }
+
+        $this->afterCheckout($order);
+
+        if ($paymentMethod !== 'cod') {
+            $this->payments->startAttempt($order);
+        }
+
+        return $order->load(['sellerOrders.items', 'payments']);
+    }
+
+    private function placeOrder(User $customer, Address $address, ?string $notes, string $paymentMethod, ?string $checkoutKey, ?string $expectedTotal): Order
+    {
+        return DB::transaction(function () use ($customer, $address, $notes, $paymentMethod, $checkoutKey, $expectedTotal) {
             /** @var Cart|null $cart */
             $cart = Cart::query()->where('user_id', $customer->id)->lockForUpdate()->first();
+
+            // The cart lock serialises this customer's checkouts, so a retry waits here and then finds the order.
+            if ($checkoutKey && $existing = Order::where('user_id', $customer->id)->where('checkout_key', $checkoutKey)->first()) {
+                return $existing;
+            }
+
             $items = $cart?->items()->with(['product.seller.sellerProfile', 'product.primaryImage'])->get() ?? collect();
 
             if ($items->isEmpty()) {
@@ -71,11 +122,18 @@ class CheckoutService
             $subtotalCents = $items->sum(fn ($i) => Money::toCents($i->product->price) * $i->quantity);
             $shippingTotalCents = $shippingCents * $bySeller->count();
 
-            $order = Order::create([
+            // A price or shipping change since the customer looked must not be charged silently.
+            // Throwing rolls back the stock deduction above.
+            if ($expectedTotal !== null && Money::toCents($expectedTotal) !== $subtotalCents + $shippingTotalCents) {
+                throw ValidationException::withMessages(['expected_total' => 'Prices or shipping changed since you opened checkout. The new total is ₱'
+                    .number_format(($subtotalCents + $shippingTotalCents) / 100, 2).'. Please review your order and place it again.']);
+            }
+
+            $order = new Order([
                 'order_number' => $this->newOrderNumber(),
                 'user_id' => $customer->id,
                 'status' => OrderStatus::Pending,
-                'payment_method' => 'cod',
+                'payment_method' => $paymentMethod,
                 'payment_status' => 'unpaid',
                 'subtotal' => Money::fromCents($subtotalCents),
                 'shipping_total' => Money::fromCents($shippingTotalCents),
@@ -83,7 +141,11 @@ class CheckoutService
                 'shipping_address' => $address->toSnapshot(),
                 'notes' => $notes,
                 'placed_at' => now(),
+                // Stock is held for online orders only until this deadline.
+                'payment_due_at' => $paymentMethod === 'cod' ? null : now()->addMinutes(config('payments.online_timeout_minutes')),
             ]);
+            $order->checkout_key = $checkoutKey;
+            $order->save();
 
             $n = 0;
             foreach ($bySeller as $sellerId => $sellerItems) {
@@ -137,35 +199,43 @@ class CheckoutService
                 ]);
             }
 
-            Payment::create([
-                'order_id' => $order->id,
-                'method' => 'cod',
-                'amount' => $order->grand_total,
-                'status' => 'pending',
-            ]);
+            // COD gets its single payment row now; online attempts are opened after commit (PaymentService).
+            if ($paymentMethod === 'cod') {
+                Payment::create([
+                    'order_id' => $order->id,
+                    'method' => 'cod',
+                    'amount' => $order->grand_total,
+                    'status' => 'pending',
+                ]);
+            }
 
             $cart->items()->delete();
 
             return $order;
         }, attempts: 3); // retry on deadlock
-
-        $this->afterCheckout($order);
-
-        return $order->load(['sellerOrders.items', 'payments']);
     }
 
     private function afterCheckout(Order $order): void
     {
         $this->audit->log('order.placed', $order, [], [
             'grand_total' => $order->grand_total,
+            'payment_method' => $order->payment_method,
             'seller_orders' => $order->sellerOrders()->count(),
         ]);
 
+        $online = $order->payment_method !== 'cod';
         $this->notifications->send(
             $order->user_id, 'order.placed', 'Order placed',
-            "Your order {$order->order_number} was placed. Pay ₱{$order->grand_total} on delivery.",
+            $online
+                ? "Your order {$order->order_number} is reserved. Complete your ₱{$order->grand_total} payment within ".config('payments.online_timeout_minutes').' minutes.'
+                : "Your order {$order->order_number} was placed. Pay ₱{$order->grand_total} on delivery.",
             ['order_id' => $order->id],
         );
+
+        // Online orders reach sellers once paid (PaymentService), so they never prepare unpaid parcels.
+        if ($online) {
+            return;
+        }
 
         foreach ($order->sellerOrders()->get() as $so) {
             $this->notifications->send(
