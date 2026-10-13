@@ -23,6 +23,7 @@ Base URL: `http://localhost:8000/api`. Send `Accept: application/json`. Authenti
 | PUT | `/auth/password` | Signs out other devices |
 | POST | `/auth/logout` | Revokes the current token |
 | GET | `/notifications` · POST `/notifications/read-all` · POST `/notifications/{id}/read` | Any role |
+| GET | `/couriers` | Seller/admin: courier list (`code, name`) plus the seller's `last` used courier |
 
 ## Customer (`role:customer`)
 
@@ -54,7 +55,7 @@ Base URL: `http://localhost:8000/api`. Send `Accept: application/json`. Authenti
 | PATCH | `/seller/products/{id}/stock` | `stock, low_stock_threshold` |
 | POST | `/seller/products/{id}/images` · PATCH `…/images/{imageId}/primary` · DELETE `…/images/{imageId}` | |
 | GET | `/seller/orders`, `/seller/orders/{id}` | Own seller orders only (policy-checked) |
-| PATCH | `/seller/orders/{id}/status` | `status` + `courier, tracking_number` when shipping, `reason` when cancelling. Transitions: pending → confirmed → packed → shipped → delivered (→ returned); cancel allowed until shipped. |
+| PATCH | `/seller/orders/{id}/status` | `status` + `courier_code` (from `GET /couriers`, or `other` with `courier` name) and optional `tracking_number` when shipping, `reason` when cancelling. Transitions: pending → confirmed → packed → shipped → delivered (→ returned); cancel allowed until shipped. |
 
 ## Admin (`role:admin`)
 

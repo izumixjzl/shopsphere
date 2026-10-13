@@ -33,13 +33,13 @@ class SellerOrderService
     ) {}
 
     /**
-     * @param  array{courier?:string,tracking_number?:string,note?:string,reason?:string}  $details
+     * @param  array{courier_code?:string,courier?:string,tracking_number?:string,note?:string,reason?:string}  $details
      */
     public function transition(SellerOrder $sellerOrder, SellerOrderStatus $next, array $details = []): SellerOrder
     {
         $old = $sellerOrder->status;
 
-        DB::transaction(function () use ($sellerOrder, $next, $details) {
+        DB::transaction(function () use ($sellerOrder, $next, &$details) {
             /** @var SellerOrder $so */
             $so = SellerOrder::query()->whereKey($sellerOrder->id)->lockForUpdate()->firstOrFail();
 
@@ -48,8 +48,14 @@ class SellerOrderService
                     'status' => "Cannot change order from {$so->status->value} to {$next->value}.",
                 ]);
             }
-            if ($next === SellerOrderStatus::Shipped && blank($details['courier'] ?? null)) {
-                throw ValidationException::withMessages(['courier' => 'Courier is required when shipping.']);
+            if ($next === SellerOrderStatus::Shipped) {
+                [$code, $name] = Couriers::resolve($details['courier_code'] ?? null, $details['courier'] ?? null);
+                if (! $name) {
+                    throw ValidationException::withMessages(['courier' => ($details['courier_code'] ?? null) === Couriers::OTHER
+                        ? 'Enter the courier name.' : 'Courier is required when shipping.']);
+                }
+                $details['courier_code'] = $code;
+                $details['courier'] = $name;
             }
 
             $so->status = $next;
@@ -117,6 +123,7 @@ class SellerOrderService
         match ($next) {
             SellerOrderStatus::Packed => $shipment->addEvent('pending', $details['note'] ?? 'Parcel packed by seller'),
             SellerOrderStatus::Shipped => (function () use ($shipment, $details) {
+                $shipment->courier_code = $details['courier_code'];
                 $shipment->courier = $details['courier'];
                 $shipment->tracking_number = $details['tracking_number'] ?? null;
                 $shipment->shipped_at = now();

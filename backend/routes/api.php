@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\CatalogController;
+use App\Http\Controllers\CourierController;
 use App\Http\Controllers\Customer;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Seller;
@@ -47,6 +48,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::get('notifications', [NotificationController::class, 'index']);
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead']);
     Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead']);
+    Route::get('couriers', CourierController::class)->middleware('role:seller,admin')->name('couriers');
 
     // ---- Customer ------------------------------------------------------------
     Route::middleware('role:customer')->name('customer.')->group(function () {

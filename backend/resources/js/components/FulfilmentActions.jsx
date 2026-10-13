@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { Alert, Button, ConfirmDialog, Input, Modal, Textarea } from './ui'
+import { useEffect, useState } from 'react'
+import { Alert, Button, ConfirmDialog, Input, Modal, Select, Textarea } from './ui'
 import { useToast } from '../context/ToastContext'
 import { api, errorMessage, fieldErrors } from '../lib/api'
+import { useFetch } from '../lib/useFetch'
 
 const LABELS = {
   confirmed: 'Confirm order', packed: 'Mark as packed', shipped: 'Ship order',
@@ -14,11 +15,18 @@ const LABELS = {
  */
 export default function FulfilmentActions({ sellerOrder, endpoint, onUpdated }) {
   const [pending, setPending] = useState(null)
-  const [details, setDetails] = useState({ courier: '', tracking_number: '', reason: '' })
+  const [details, setDetails] = useState({ courier_code: '', courier: '', tracking_number: '', reason: '' })
   const [errors, setErrors] = useState({})
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
   const toast = useToast()
+  const couriers = useFetch('/couriers', undefined, { enabled: pending === 'shipped' })
+
+  // Start from the courier this seller used last; most sellers stick to one or two.
+  const last = couriers.data?.last
+  useEffect(() => {
+    if (last) setDetails((d) => (d.courier_code ? d : { ...d, courier_code: last.code, courier: last.code === 'other' ? last.name : '' }))
+  }, [last])
 
   const next = sellerOrder.allowed_next || []
   if (!next.length) return null
@@ -51,7 +59,16 @@ export default function FulfilmentActions({ sellerOrder, endpoint, onUpdated }) 
         footer={<><Button variant="ghost" onClick={() => setPending(null)}>Not yet</Button><Button loading={saving} onClick={submit}>Ship order</Button></>}>
         <div className="grid gap-4">
           {error && <Alert>{error}</Alert>}
-          <Input label="Courier" placeholder="J&T Express, LBC, Ninja Van…" value={details.courier} onChange={(e) => setDetails({ ...details, courier: e.target.value })} error={errors.courier} />
+          <Select label="Courier" value={details.courier_code} error={details.courier_code !== 'other' ? errors.courier || errors.courier_code : undefined}
+            onChange={(e) => setDetails({ ...details, courier_code: e.target.value, courier: '' })}>
+            <option value="" disabled>{couriers.loading ? 'Loading couriers…' : 'Choose a courier'}</option>
+            {couriers.data?.data.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+            <option value="other">Other</option>
+          </Select>
+          {details.courier_code === 'other' && (
+            <Input label="Courier name" placeholder="e.g. Entrego" maxLength={60} autoFocus value={details.courier}
+              onChange={(e) => setDetails({ ...details, courier: e.target.value })} error={errors.courier} />
+          )}
           <Input label="Tracking number" value={details.tracking_number} onChange={(e) => setDetails({ ...details, tracking_number: e.target.value })} error={errors.tracking_number} hint="The customer sees this on their order page." />
         </div>
       </Modal>

@@ -41,7 +41,7 @@ class SellerOrderResource extends JsonResource
             'items' => OrderItemResource::collection($this->whenLoaded('items')),
             'items_count' => $this->whenHas('items_count'),
             'shipment' => $this->whenLoaded('shipment', fn () => $this->shipment?->only([
-                'courier', 'tracking_number', 'status', 'tracking_events', 'shipped_at', 'delivered_at',
+                'courier_code', 'courier', 'tracking_number', 'status', 'tracking_events', 'shipped_at', 'delivered_at',
             ])),
             'created_at' => $this->created_at?->toIso8601String(),
         ];

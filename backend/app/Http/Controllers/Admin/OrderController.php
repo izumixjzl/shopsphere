@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
 use App\Models\SellerOrder;
+use App\Services\Couriers;
 use App\Services\SellerOrderService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -51,7 +52,8 @@ class OrderController extends Controller
     {
         $data = $request->validate([
             'status' => ['required', Rule::enum(SellerOrderStatus::class)],
-            'courier' => ['nullable', 'string', 'max:60'],
+            'courier_code' => ['nullable', Rule::in(Couriers::codes())],
+            'courier' => ['nullable', 'string', 'max:60'], // display name; required when courier_code is "other"
             'tracking_number' => ['nullable', 'string', 'max:100'],
             'reason' => ['nullable', 'string', 'max:500'],
         ]);

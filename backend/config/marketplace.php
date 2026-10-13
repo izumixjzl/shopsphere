@@ -23,6 +23,19 @@ return [
     // Reasons where the customer must attach at least one photo or video.
     'evidence_required_reasons' => ['Item arrived damaged', 'Wrong item received'],
 
+    // Couriers sellers pick from when shipping: code => display name. "other" (free text) is always allowed.
+    // `aliases` map common spellings typed before the dropdown existed (and by API clients) to a code.
+    'couriers' => [
+        'jnt' => ['name' => 'J&T Express', 'aliases' => ['j&t', 'jnt', 'j and t', 'jt express']],
+        'lbc' => ['name' => 'LBC Express', 'aliases' => ['lbc']],
+        'ninjavan' => ['name' => 'Ninja Van', 'aliases' => ['ninjavan', 'ninja']],
+        'flash' => ['name' => 'Flash Express', 'aliases' => ['flash']],
+        '2go' => ['name' => '2GO Express', 'aliases' => ['2go']],
+        'gogo' => ['name' => 'GoGo Xpress', 'aliases' => ['gogo', 'gogo express']],
+        'grab' => ['name' => 'Grab Express', 'aliases' => ['grab', 'grabexpress']],
+        'lalamove' => ['name' => 'Lalamove', 'aliases' => []],
+    ],
+
     // Hide a listing for admin review once this many different customers have open reports on it (0 = off).
     'auto_flag_report_threshold' => (int) env('MARKETPLACE_AUTO_FLAG_REPORT_THRESHOLD', 3),
 
