@@ -10,7 +10,8 @@ Base URL: `http://localhost:8000/api`. Send `Accept: application/json`. Authenti
 | GET | `/products` | `q, category, store, min_price, max_price, min_rating, in_stock, sort (newest·popular·price_asc·price_desc·rating), per_page, page` |
 | GET | `/products/{slug}` | Product, rating breakdown, related products |
 | GET | `/products/{slug}/reviews` | Paginated verified reviews |
-| GET | `/stores/{slug}` | Storefront profile + stats |
+| GET | `/stores/{slug}` | Storefront profile + stats (seller rating from verified purchases) |
+| GET | `/stores/{slug}/reviews` | Paginated verified reviews across all of the store's products |
 
 ## Auth
 
@@ -44,6 +45,7 @@ Base URL: `http://localhost:8000/api`. Send `Accept: application/json`. Authenti
 |---|---|---|
 | GET / POST | `/seller/store` | Profile (multipart for logo/banner) — allowed while pending |
 | POST | `/seller/store/verifications` | Upload a document — allowed while pending |
+| GET / POST | `/seller/appeals` | Appeal history / file an appeal (`message`, 20–3000 chars). Only while suspended, one open at a time — allowed outside the approval gate |
 | GET | `/seller/dashboard?from&to` | KPIs, sales series, status breakdown, best sellers, low stock |
 | GET | `/seller/finance` | Commission ledger + payout history |
 | GET | `/seller/reports/sales?format=csv|pdf&from&to` | Download |
@@ -59,13 +61,15 @@ Base URL: `http://localhost:8000/api`. Send `Accept: application/json`. Authenti
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/admin/dashboard?from&to` · `/admin/reports/sales?format&from&to&seller_id` · `/admin/audit-logs` | |
-| GET | `/admin/sellers?status&q`, `/admin/sellers/{id}` | |
-| POST | `/admin/sellers/{id}/approve` · `/reject` (`reason`) · `/suspend` (`reason`) | |
+| GET | `/admin/sellers?status&appeal=open&q`, `/admin/sellers/{id}` | Includes documents and appeals |
+| GET | `/admin/sellers/{id}/trust` | Rating, report/listing/order counts, account history (from the audit log) |
+| POST | `/admin/sellers/{id}/approve` · `/reject` (`reason`) · `/suspend` (`reason`) | Approve needs an accepted document (not when reinstating a suspended store). Reject: pending only. Suspend: approved only. |
+| POST | `/admin/seller-appeals/{id}/decide` | `status` = accepted (reinstates) / denied (`admin_note` required) |
 | PATCH | `/admin/sellers/{id}/commission` | `commission_rate` 0–50 or null for default |
-| PATCH | `/admin/verifications/{id}` · GET `/admin/verifications/{id}/download` | |
+| PATCH | `/admin/verifications/{id}` · GET `/admin/verifications/{id}/download` | `status` approved / rejected (`notes` required when rejecting); seller is notified |
 | GET | `/admin/users` · PATCH `/admin/users/{id}/status` | Suspending revokes all tokens |
 | GET POST PUT DELETE | `/admin/categories[/{id}]` | |
-| GET | `/admin/products` · PATCH `/admin/products/{id}/moderation` | approved / flagged / removed |
+| GET | `/admin/products` · PATCH `/admin/products/{id}/moderation` | approved / flagged / removed. Listings auto-flag once `MARKETPLACE_AUTO_FLAG_REPORT_THRESHOLD` (default 3) customers have open reports |
 | GET | `/admin/orders`, `/admin/orders/{id}` · PATCH `/admin/seller-orders/{id}/status` | Override with the same transition rules |
 | GET | `/admin/refunds` · POST `/admin/refunds/{id}/decide` · POST `/admin/refunds/{id}/refunded` | |
 | GET | `/admin/payouts` · POST `/admin/payouts` (`seller_id`) · POST `/admin/payouts/{id}/paid` | |

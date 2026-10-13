@@ -143,7 +143,7 @@ class CatalogController extends Controller
             ->firstOrFail();
 
         $stats = Product::query()->visible()->where('seller_id', $profile->user_id)
-            ->selectRaw('COUNT(*) as products, COALESCE(SUM(sales_count),0) as sold, COALESCE(AVG(NULLIF(rating_avg,0)),0) as rating')
+            ->selectRaw('COUNT(*) as products, COALESCE(SUM(sales_count),0) as sold')
             ->first();
 
         return response()->json([
@@ -151,7 +151,42 @@ class CatalogController extends Controller
             'stats' => [
                 'products' => (int) $stats->products,
                 'units_sold' => (int) $stats->sold,
-                'rating' => round((float) $stats->rating, 2),
+                // Every review counted here is tied to a delivered order item.
+                'rating' => (float) $profile->rating_avg,
+                'rating_count' => (int) $profile->rating_count,
+            ],
+        ]);
+    }
+
+    /** Latest verified-purchase reviews across all of a store's products. */
+    public function storeReviews(string $slug): JsonResponse
+    {
+        $profile = SellerProfile::query()
+            ->where('store_slug', $slug)
+            ->where('status', SellerStatus::Approved)
+            ->firstOrFail();
+
+        $reviews = Review::query()
+            ->where('is_visible', true)
+            ->whereHas('orderItem', fn ($q) => $q->where('seller_id', $profile->user_id))
+            ->with(['author:id,name', 'product:id,name,slug'])
+            ->latest()->paginate(10);
+
+        return response()->json([
+            'data' => $reviews->getCollection()->map(fn ($r) => [
+                'id' => $r->id,
+                'rating' => $r->rating,
+                'title' => $r->title,
+                'body' => $r->body,
+                'author' => $r->author?->name,
+                'product' => $r->product?->only(['name', 'slug']),
+                'verified_purchase' => true,
+                'created_at' => $r->created_at->toIso8601String(),
+            ]),
+            'meta' => [
+                'current_page' => $reviews->currentPage(),
+                'last_page' => $reviews->lastPage(),
+                'total' => $reviews->total(),
             ],
         ]);
     }

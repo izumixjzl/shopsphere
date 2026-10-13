@@ -38,8 +38,11 @@ function Verification({ profile, onUploaded }) {
       {profile.verifications?.length > 0 && (
         <ul className="mt-4 divide-y divide-line rounded-xl border border-line">
           {profile.verifications.map((v) => (
-            <li key={v.id} className="flex items-center justify-between px-4 py-3 text-sm">
-              <span className="flex items-center gap-2"><FileCheck2 className="size-4 text-ink-mute" /> {humanize(v.document_type)} · {date(v.created_at)}</span>
+            <li key={v.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+              <span>
+                <span className="flex items-center gap-2"><FileCheck2 className="size-4 text-ink-mute" /> {humanize(v.document_type)} · {date(v.created_at)}</span>
+                {v.status === 'rejected' && v.notes && <span className="mt-0.5 block pl-6 text-xs text-coral">{v.notes}</span>}
+              </span>
               <StatusBadge status={v.status} />
             </li>
           ))}

@@ -1,10 +1,46 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { Store } from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
+import { BadgeCheck, Store } from 'lucide-react'
 import ProductCard, { ProductGridSkeleton } from '../../components/ProductCard'
-import { Button, EmptyState, PageLoader, Pagination, Select } from '../../components/ui'
-import { compact } from '../../lib/format'
+import { Button, EmptyState, PageLoader, Pagination, Select, Stars } from '../../components/ui'
+import { compact, date } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
+
+/** Reviews from delivered orders across every product this store sells. */
+function StoreReviews({ slug, stats }) {
+  const [page, setPage] = useState(1)
+  const { data } = useFetch(`/stores/${slug}/reviews`, { page })
+
+  return (
+    <section className="mt-16 border-t border-line pt-10">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h2 className="text-2xl font-bold">Store reviews</h2>
+        {stats.rating_count > 0 && (
+          <div className="flex items-center gap-2 text-sm text-ink-soft">
+            <Stars value={stats.rating} /> {stats.rating.toFixed(1)} from {stats.rating_count} verified {stats.rating_count === 1 ? 'purchase' : 'purchases'}
+          </div>
+        )}
+      </div>
+      {data?.data.length === 0 && <p className="mt-4 text-ink-soft">No reviews yet. Only customers whose order was delivered can review this store's products.</p>}
+      <ul className="mt-4 divide-y divide-line">
+        {data?.data.map((r) => (
+          <li key={r.id} className="py-5">
+            <div className="flex items-center justify-between gap-3">
+              <Stars value={r.rating} />
+              <span className="text-xs text-ink-mute">{date(r.created_at)}</span>
+            </div>
+            {r.title && <h3 className="mt-2 font-sans text-base font-semibold tracking-normal">{r.title}</h3>}
+            {r.body && <p className="mt-1 text-ink-soft">{r.body}</p>}
+            <p className="mt-2 text-xs text-ink-mute">
+              {r.author} · Verified purchase{r.product && <> · <Link to={`/products/${r.product.slug}`} className="hover:text-sphere">{r.product.name}</Link></>}
+            </p>
+          </li>
+        ))}
+      </ul>
+      <Pagination meta={data?.meta} onPage={setPage} />
+    </section>
+  )
+}
 
 export default function StorePage() {
   const { slug } = useParams()
@@ -27,12 +63,20 @@ export default function StorePage() {
           </div>
           <div className="flex-1">
             <h1 className="text-3xl font-bold">{s.store_name}</h1>
+            {/* Only approved stores are public, and approval requires an accepted document. */}
+            <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-white/80">
+              <BadgeCheck className="size-4 text-mango" /> Verified seller{s.approved_at && ` since ${date(s.approved_at)}`}
+            </p>
             {s.description && <p className="mt-1 max-w-xl text-white/70">{s.description}</p>}
           </div>
           <dl className="flex gap-8 text-center">
             <div><dt className="text-xs text-white/60">Products</dt><dd className="font-display text-2xl font-bold">{stats.products}</dd></div>
             <div><dt className="text-xs text-white/60">Sold</dt><dd className="font-display text-2xl font-bold">{compact(stats.units_sold)}</dd></div>
-            <div><dt className="text-xs text-white/60">Rating</dt><dd className="font-display text-2xl font-bold">{stats.rating ? stats.rating.toFixed(1) : '—'}</dd></div>
+            <div>
+              <dt className="text-xs text-white/60">Rating</dt>
+              <dd className="font-display text-2xl font-bold">{stats.rating_count ? stats.rating.toFixed(1) : '—'}</dd>
+              {stats.rating_count > 0 && <dd className="text-xs text-white/60">{compact(stats.rating_count)} reviews</dd>}
+            </div>
           </dl>
         </div>
       </section>
@@ -51,6 +95,7 @@ export default function StorePage() {
             <Pagination meta={products.data?.meta} onPage={setPage} />
           </>
         )}
+        <StoreReviews slug={slug} stats={stats} />
       </div>
     </>
   )

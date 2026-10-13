@@ -8,6 +8,7 @@ MySQL 8, InnoDB, utf8mb4. All tables use `BIGINT UNSIGNED` auto-increment primar
 erDiagram
     users ||--o| seller_profiles : "owns store"
     seller_profiles ||--o{ seller_verifications : "uploads"
+    seller_profiles ||--o{ seller_appeals : "appeals suspension"
     categories ||--o{ categories : "parent of"
     categories ||--o{ products : "groups"
     users ||--o{ products : "sells (seller_id)"
@@ -58,7 +59,8 @@ erDiagram
 | Table | Purpose |
 |---|---|
 | `users` | All accounts. `role` = customer / seller / admin, `status` = active / suspended. Soft-deleted. |
-| `seller_profiles` | Storefront: name, slug, branding, contact, approval `status`, optional commission override. |
+| `seller_profiles` | Storefront: name, slug, branding, contact, approval `status`, `suspended_at`, optional commission override, cached `rating_avg`/`rating_count` (visible reviews on the seller's order items). |
+| `seller_appeals` | A suspended seller's request for reinstatement: message, snapshot of the suspension reason, `status` open / accepted / denied, admin note and decider. |
 | `seller_verifications` | Uploaded documents (stored on the private disk) and their review result. |
 | `categories` | Two-level tree via `parent_id`. |
 | `products` | Seller listings; seller-controlled `status`, admin-controlled `moderation_status`. |

@@ -72,6 +72,8 @@ export default function AdminProducts() {
             { key: 'stock', label: 'Stock', align: 'right' },
             { key: 'status', label: 'Seller status', render: (r) => <StatusBadge status={r.status} /> },
             { key: 'moderation_status', label: 'Moderation', render: (r) => <StatusBadge status={r.moderation_status} /> },
+            { key: 'open_reports_count', label: 'Open reports', align: 'right', render: (r) => r.open_reports_count
+              ? <Link to="/admin/reports" className="font-semibold text-coral hover:underline">{r.open_reports_count}</Link> : <span className="text-ink-mute">0</span> },
             { key: 'a', label: '', align: 'right', render: (r) => <button onClick={() => setTarget(r)} className="rounded-full px-3 py-1 text-sm font-medium text-sphere hover:bg-sphere-tint">Moderate</button> },
           ]} />
         <div className="px-4 pb-4"><Pagination meta={data?.meta} onPage={setPage} /></div>

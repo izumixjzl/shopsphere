@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\Review;
+use App\Models\SellerProfile;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,6 +50,7 @@ class ReviewController extends Controller
                 'is_visible' => true,
             ]);
             $this->refreshRating($orderItem->product_id);
+            SellerProfile::refreshRating($orderItem->seller_id);
 
             return $review;
         });

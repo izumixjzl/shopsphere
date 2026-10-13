@@ -23,6 +23,9 @@ return [
     // Reasons where the customer must attach at least one photo or video.
     'evidence_required_reasons' => ['Item arrived damaged', 'Wrong item received'],
 
+    // Hide a listing for admin review once this many different customers have open reports on it (0 = off).
+    'auto_flag_report_threshold' => (int) env('MARKETPLACE_AUTO_FLAG_REPORT_THRESHOLD', 3),
+
     // Also email every in-app notification (queued; needs a running queue worker).
     'email_notifications' => (bool) env('MARKETPLACE_EMAIL_NOTIFICATIONS', true),
 ];

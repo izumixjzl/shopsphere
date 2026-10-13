@@ -23,7 +23,7 @@ class StoreProfileController extends Controller
 
     public function show(Request $request): SellerProfileResource
     {
-        return new SellerProfileResource($request->user()->sellerProfile()->with('verifications')->firstOrFail());
+        return new SellerProfileResource($request->user()->sellerProfile()->with(['verifications', 'appeals'])->firstOrFail());
     }
 
     public function update(Request $request): SellerProfileResource

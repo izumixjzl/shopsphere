@@ -18,7 +18,7 @@ function ReviewModal({ report, onClose, onSaved }) {
   const product = report.product
 
   async function save() {
-    if (moderation && !note.trim()) return setError('Add a note so the seller knows what to fix.')
+    if (moderation && moderation !== 'approved' && !note.trim()) return setError('Add a note so the seller knows what to fix.')
     setSaving(true); setError(null)
     try {
       if (moderation && product) {
@@ -39,20 +39,23 @@ function ReviewModal({ report, onClose, onSaved }) {
           {report.details && <p className="mt-1 text-ink-soft">{report.details}</p>}
           <p className="mt-2 text-xs text-ink-mute">Reported by {report.reporter?.name} · {dateTime(report.created_at)}</p>
         </div>
-        <Select label="Decision" value={status} onChange={(e) => { setStatus(e.target.value); if (e.target.value === 'dismissed') setModeration('') }}>
+        <Select label="Decision" value={status} onChange={(e) => { setStatus(e.target.value); setModeration('') }}>
           <option value="resolved">Resolved — the report was valid</option>
           <option value="dismissed">Dismissed — no rule was broken</option>
         </Select>
-        {status === 'resolved' && product && (
+        {product && (status === 'resolved' || product.moderation_status !== 'approved') && (
           <Select label="Action on the listing" value={moderation} onChange={(e) => setModeration(e.target.value)}
-            hint={`Currently ${product.moderation_status}.`}>
+            hint={product.moderation_status === 'flagged' && product.moderation_note?.startsWith('Hidden automatically')
+              ? 'Hidden automatically after several reports. Restore it if the reports were unfounded.'
+              : `Currently ${product.moderation_status}.`}>
             <option value="">No change</option>
-            <option value="flagged">Flag — hide until the seller fixes it</option>
-            <option value="removed">Remove — violates marketplace rules</option>
+            {product.moderation_status !== 'approved' && <option value="approved">Restore — show it in the shop again</option>}
+            {status === 'resolved' && product.moderation_status !== 'flagged' && <option value="flagged">Flag — hide until the seller fixes it</option>}
+            {status === 'resolved' && product.moderation_status !== 'removed' && <option value="removed">Remove — violates marketplace rules</option>}
           </Select>
         )}
         <Textarea label="Note" value={note} onChange={(e) => setNote(e.target.value)} error={error}
-          hint={moderation ? 'Sent to the seller with the moderation decision.' : 'Optional. Kept with the report.'} />
+          hint={moderation && moderation !== 'approved' ? 'Sent to the seller with the moderation decision.' : 'Optional. Kept with the report.'} />
       </div>
     </Modal>
   )

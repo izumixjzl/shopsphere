@@ -30,6 +30,7 @@ class ProductModerationController extends Controller
             ->when($filters['moderation_status'] ?? null, fn ($q, $s) => $q->where('moderation_status', $s))
             ->when($filters['seller_id'] ?? null, fn ($q, $s) => $q->where('seller_id', $s))
             ->with(['primaryImage', 'inventory', 'category', 'seller.sellerProfile'])
+            ->withCount(['reports as open_reports_count' => fn ($q) => $q->where('status', 'open')])
             ->latest()->paginate(20)->withQueryString();
 
         return ProductResource::collection($products);

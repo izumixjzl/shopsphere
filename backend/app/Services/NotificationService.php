@@ -77,6 +77,8 @@ class NotificationService
                 default => null,
             },
             UserRole::Seller => match (true) {
+                // The suspension notice and appeal form live on the seller home page.
+                $type === 'seller.suspended' || str_starts_with($type, 'seller.appeal') => '/seller',
                 $group === 'refund' => '/seller/returns',
                 isset($data['seller_order_id']) => "/seller/orders/{$data['seller_order_id']}",
                 isset($data['product_id']) => "/seller/products/{$data['product_id']}",

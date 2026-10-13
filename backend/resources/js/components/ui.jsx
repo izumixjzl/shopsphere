@@ -81,6 +81,7 @@ const tones = {
   returned: 'bg-ink/5 text-ink-soft', reversed: 'bg-ink/5 text-ink-soft', draft: 'bg-ink/5 text-ink-soft',
   inactive: 'bg-ink/5 text-ink-soft', unpaid: 'bg-ink/5 text-ink-soft',
   open: 'bg-mango-tint text-[#8a5a00]', resolved: 'bg-leaf-tint text-leaf', dismissed: 'bg-ink/5 text-ink-soft',
+  appealed: 'bg-mango-tint text-[#8a5a00]', accepted: 'bg-leaf-tint text-leaf', denied: 'bg-coral-tint text-coral',
 }
 
 export function StatusBadge({ status, className = '' }) {

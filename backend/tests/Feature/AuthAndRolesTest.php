@@ -59,6 +59,7 @@ class AuthAndRolesTest extends TestCase
         $this->getJson('/api/seller/store')->assertOk(); // profile is still editable
 
         $profile = SellerProfile::where('user_id', $seller->id)->first();
+        $profile->verifications()->forceCreate(['document_type' => 'valid_id', 'document_url' => 'verifications/x.pdf', 'status' => 'approved']);
         $this->actingAsRole($admin)->postJson("/api/admin/sellers/{$profile->id}/approve")->assertOk()
             ->assertJsonPath('status', 'approved');
 

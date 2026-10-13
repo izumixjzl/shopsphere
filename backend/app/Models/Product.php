@@ -63,6 +63,11 @@ class Product extends Model
         return $this->hasMany(Review::class);
     }
 
+    public function reports(): HasMany
+    {
+        return $this->hasMany(ProductReport::class);
+    }
+
     // ---- Scopes ---------------------------------------------------------
 
     /** Products customers are allowed to see and buy. */

@@ -23,6 +23,7 @@ Route::name('catalog.')->group(function () {
     Route::get('products/{slug}', [CatalogController::class, 'product'])->name('product.show');
     Route::get('products/{slug}/reviews', [CatalogController::class, 'productReviews'])->name('product.reviews');
     Route::get('stores/{slug}', [CatalogController::class, 'store'])->name('store.show');
+    Route::get('stores/{slug}/reviews', [CatalogController::class, 'storeReviews'])->name('store.reviews');
 });
 
 // ---- Authentication ---------------------------------------------------------
@@ -81,6 +82,9 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('store', [Seller\StoreProfileController::class, 'show'])->name('store.show');
         Route::post('store', [Seller\StoreProfileController::class, 'update'])->name('store.update'); // multipart
         Route::post('store/verifications', [Seller\StoreProfileController::class, 'uploadVerification'])->name('store.verifications');
+        // Suspended stores can still appeal.
+        Route::get('appeals', [Seller\AppealController::class, 'index'])->name('appeals.index');
+        Route::post('appeals', [Seller\AppealController::class, 'store'])->name('appeals.store');
 
         Route::middleware('seller.approved')->group(function () {
             Route::get('dashboard', [Seller\DashboardController::class, 'index'])->name('dashboard');
@@ -116,12 +120,14 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
         Route::get('sellers', [Admin\SellerController::class, 'index'])->name('sellers.index');
         Route::get('sellers/{seller}', [Admin\SellerController::class, 'show'])->name('sellers.show');
+        Route::get('sellers/{seller}/trust', [Admin\SellerController::class, 'trust'])->name('sellers.trust');
         Route::post('sellers/{seller}/approve', [Admin\SellerController::class, 'approve'])->name('sellers.approve');
         Route::post('sellers/{seller}/reject', [Admin\SellerController::class, 'reject'])->name('sellers.reject');
         Route::post('sellers/{seller}/suspend', [Admin\SellerController::class, 'suspend'])->name('sellers.suspend');
         Route::patch('sellers/{seller}/commission', [Admin\SellerController::class, 'updateCommission'])->name('sellers.commission');
         Route::patch('verifications/{verification}', [Admin\SellerController::class, 'reviewVerification'])->name('verifications.review');
         Route::get('verifications/{verification}/download', [Admin\SellerController::class, 'downloadVerification'])->name('verifications.download');
+        Route::post('seller-appeals/{appeal}/decide', [Admin\SellerAppealController::class, 'decide'])->name('seller-appeals.decide');
 
         Route::get('users', [Admin\UserController::class, 'index'])->name('users.index');
         Route::patch('users/{user}/status', [Admin\UserController::class, 'updateStatus'])->name('users.status');

@@ -38,7 +38,10 @@ class ProductResource extends JsonResource
                 'store_name' => $this->seller->sellerProfile?->store_name,
                 'store_slug' => $this->seller->sellerProfile?->store_slug,
                 'logo_url' => $this->seller->sellerProfile?->logo_url,
+                'rating_avg' => (float) $this->seller->sellerProfile?->rating_avg,
+                'rating_count' => (int) $this->seller->sellerProfile?->rating_count,
             ]),
+            'open_reports_count' => $this->whenHas('open_reports_count'),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

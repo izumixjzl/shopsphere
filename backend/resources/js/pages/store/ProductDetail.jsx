@@ -161,6 +161,7 @@ export default function ProductDetail() {
         <div>
           <Link to={`/stores/${p.seller?.store_slug}`} className="inline-flex items-center gap-1.5 text-sm font-medium text-sphere hover:underline">
             <Store className="size-4" /> {p.seller?.store_name}
+            {p.seller?.rating_count > 0 && <span className="font-normal text-ink-mute">· {p.seller.rating_avg.toFixed(1)} ★ seller rating ({p.seller.rating_count})</span>}
           </Link>
           <h1 className="mt-2 text-[clamp(1.8rem,4vw,2.6rem)] font-bold">{p.name}</h1>
           {p.rating_count > 0 && (
